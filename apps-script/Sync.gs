@@ -101,9 +101,6 @@ function scriptApi_(method, path, body) {
   const code = res.getResponseCode();
   const text = res.getContentText();
   if (code < 200 || code >= 300) {
-    if (code === 403 && /has not been used|disabled/i.test(text)) {
-      throw new Error('Apps Script API가 꺼져 있어요. https://script.google.com/home/usersettings 에서 켜주세요.');
-    }
     throw new Error('Apps Script API 오류 ' + code + ': ' + text.slice(0, 300));
   }
   return text ? JSON.parse(text) : {};
