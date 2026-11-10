@@ -13,14 +13,16 @@
 | `teacher.html`, `js/teacher.js` | 교사 화면 (PDF 불러오기·마스킹·진행 현황·피드백 검토·A4 출력·QR) |
 | `js/api.js` | Apps Script API 호출 도우미 |
 | `js/config.js` | Apps Script 웹앱 주소 |
-| `apps-script/Code.gs` | Apps Script에 붙여넣는 서버 코드 (시트·드라이브 처리) |
+| `apps-script/Code.gs` | 서버 코드 (시트·드라이브 처리) |
+| `apps-script/Sync.gs` | GitHub → Apps Script 자동 배포 (5분마다 확인) |
+| `apps-script/appsscript.json` | Apps Script 설정 (권한·웹앱 배포 설정) |
 
 학생 명단, 평가 결과, 교사 비밀번호, 평가지 이미지는 모두 선생님 구글 시트와 드라이브에만 있고, 이 저장소에는 들어가지 않습니다.
 
 ## 수정하는 법
 
 - **화면만 고칠 때**: `index.html`, `teacher.html`, `js/` 파일을 고쳐서 커밋하면 1~2분 뒤 Pages에 반영됩니다. 학생 기기에 옛날 화면이 남아 있으면 `js/config.js`의 `APP_VERSION` 숫자를 올리세요.
-- **서버를 고칠 때**: `apps-script/Code.gs`를 고친 뒤 Apps Script 편집기에 붙여넣고, 배포 → 배포 관리 → 수정 → 버전 "새 버전" → 배포.
+- **서버를 고칠 때**: `apps-script/` 폴더 파일을 고쳐서 커밋하면, Apps Script가 5분 안에 가져가서 같은 웹앱 주소에 새 버전으로 배포합니다 (`apps-script/Sync.gs`). 바로 반영하려면 편집기에서 `syncFromGitHub` 실행, 상태 확인은 `syncStatus`.
 - **체크 항목·목표 편수 바꾸기**: `apps-script/Code.gs` 맨 위 설정(`CHECK_ITEMS`, `TARGET_REVIEWS` 등).
 
 ## Apps Script 배포 설정
