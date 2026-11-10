@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+  <title>여행지리 동료평가 - 교사</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Nanum Gothic', sans-serif; background: #fafaf9; color: #1c1917; line-height: 1.5; }
+    .serif { font-family: 'Noto Serif KR', serif; }
+
+    /* 로그인 */
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #1c1917; padding: 24px; }
+    .login-card { max-width: 420px; width: 100%; background: #292524; border: 1px solid #44403c; padding: 34px; color: white; }
+    .login-card h2 { font-family: 'Noto Serif KR'; font-size: 26px; margin-bottom: 6px; }
+    .login-card p { color: #a8a29e; font-size: 13px; margin-bottom: 22px; }
+    .login-card input { width: 100%; padding: 12px 14px; background: #1c1917; border: 1px solid #44403c; color: white;
+                        font-family: 'Nanum Gothic'; font-size: 14px; outline: none; margin-bottom: 12px; }
+    .login-card button { width: 100%; padding: 12px; background: white; color: #1c1917; border: none; font-family: 'Nanum Gothic'; font-weight: 700; cursor: pointer; }
+    .login-error { color: #fca5a5; font-size: 13px; margin-bottom: 12px; }
+
+    /* 상단 */
+    .top-bar { background: #1c1917; color: white; }
+    .top-inner { max-width: 1300px; margin: 0 auto; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .top-title .small { font-size: 11px; letter-spacing: 0.2em; color: #a8a29e; }
+    .top-title .name { font-weight: 700; font-size: 18px; }
+    .logout-btn { background: none; border: none; color: #a8a29e; cursor: pointer; font-family: 'Nanum Gothic'; font-size: 13px; }
+    .tabs { max-width: 1300px; margin: 0 auto; padding: 0 24px; display: flex; gap: 2px; flex-wrap: wrap; }
+    .tab { padding: 11px 18px; font-size: 14px; cursor: pointer; color: #a8a29e; background: none; border: none; font-family: 'Nanum Gothic'; }
+    .tab:hover { color: white; }
+    .tab.active { background: #fafaf9; color: #1c1917; font-weight: 700; }
+
+    .container { max-width: 1300px; margin: 0 auto; padding: 24px; }
+    .class-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .class-tab { padding: 8px 18px; background: white; border: 1px solid #d6d3d1; cursor: pointer; font-size: 14px; font-family: 'Nanum Gothic'; }
+    .class-tab.active { background: #1c1917; color: white; border-color: #1c1917; }
+
+    .card { background: white; border: 1px solid #e7e5e4; padding: 22px; margin-bottom: 16px; }
+    .card h3 { font-family: 'Noto Serif KR'; font-size: 18px; margin-bottom: 12px; }
+    .muted { color: #78716c; font-size: 13px; }
+    .label { display: block; font-size: 11px; letter-spacing: 0.15em; color: #78716c; margin-bottom: 6px; }
+    select, input[type=text], input[type=number], textarea {
+      padding: 9px 11px; border: 1px solid #d6d3d1; outline: none; font-family: 'Nanum Gothic'; font-size: 14px; background: white; width: 100%;
+    }
+    textarea { resize: vertical; }
+    .row-flex { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+
+    .btn-primary { padding: 11px 20px; background: #1c1917; color: white; border: none; font-family: 'Nanum Gothic'; font-size: 14px; cursor: pointer; font-weight: 700; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { padding: 7px 13px; background: white; color: #1c1917; border: 1px solid #d6d3d1; font-family: 'Nanum Gothic'; font-size: 13px; cursor: pointer; }
+    .btn-secondary:hover { border-color: #1c1917; }
+    .btn-secondary.on { background: #1c1917; color: white; border-color: #1c1917; }
+
+    table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .tbl th, .tbl td { padding: 8px; text-align: left; border-bottom: 1px solid #f5f5f4; }
+    .tbl th { font-weight: 700; color: #57534e; background: #f5f5f4; font-size: 12px; }
+    .tbl td input[type=number] { width: 64px; padding: 4px 6px; }
+    .tbl tr.off td { color: #a8a29e; }
+
+    .alert { padding: 12px 14px; font-size: 13px; margin-bottom: 12px; line-height: 1.7; }
+    .alert-success { background: #d1fae5; border: 1px solid #a7f3d0; color: #065f46; }
+    .alert-error { background: #fee2e2; border: 1px solid #fecaca; color: #991b1b; }
+    .alert-warn { background: #fef3c7; border: 1px solid #fde68a; color: #92400e; }
+    .alert-info { background: #fffbeb; border-left: 4px solid #d97706; color: #44403c; }
+
+    .upload-zone { border: 2px dashed #d6d3d1; padding: 26px; text-align: center; cursor: pointer; flex: 1; min-width: 260px; }
+    .upload-zone:hover { border-color: #78716c; }
+
+    .thumb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+    .thumb { border: 1px solid #e7e5e4; background: #f5f5f4; cursor: pointer; }
+    .thumb:hover { border-color: #1c1917; }
+    .thumb .tlabel { padding: 6px 8px; font-size: 12px; background: white; display: flex; justify-content: space-between; gap: 4px; }
+    .thumb .tcanvas { padding: 6px; min-height: 120px; display: flex; align-items: center; justify-content: center; color: #a8a29e; font-size: 12px; }
+    .thumb canvas { width: 100%; display: block; border: 1px solid #d6d3d1; }
+    .tag { font-size: 10px; padding: 1px 5px; background: #fee2e2; color: #991b1b; }
+
+    .pbar { height: 8px; background: #f5f5f4; margin: 12px 0; }
+    .pbar > div { height: 100%; background: #1c1917; width: 0; transition: width 0.2s; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+    .stat-card { background: white; border: 1px solid #e7e5e4; padding: 16px; }
+    .stat-card .small { font-size: 11px; letter-spacing: 0.15em; color: #78716c; }
+    .stat-card .value { font-size: 26px; font-weight: 700; margin-top: 2px; }
+    .stat-card .unit { font-size: 12px; color: #a8a29e; margin-left: 3px; font-weight: 400; }
+    .bar-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; font-size: 13px; }
+    .bar-row .name { width: 150px; }
+    .bar-row .bar { flex: 1; background: #f5f5f4; height: 16px; }
+    .bar-row .fill { height: 100%; background: #78716c; }
+    .bar-row .fill.good { background: #059669; }
+    .bar-row .fill.zero { background: #dc2626; }
+    .bar-row .count { width: 46px; text-align: right; font-weight: 700; }
+    .chip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+    .chip { display: flex; justify-content: space-between; padding: 7px 10px; background: #fafaf9; border: 1px solid #e7e5e4; font-size: 13px; }
+    .chip.zero { background: #fef2f2; border-color: #fecaca; }
+    .chip.done { background: #ecfdf5; border-color: #a7f3d0; }
+
+    details.fb { border-bottom: 1px solid #e7e5e4; padding: 12px 0; }
+    details.fb summary { cursor: pointer; font-size: 15px; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+    details.fb summary::-webkit-details-marker { display: none; }
+    .rv { background: #fafaf9; border: 1px solid #e7e5e4; padding: 12px; margin-top: 10px; font-size: 13px; }
+    .rv.hidden { opacity: 0.45; }
+    .rv-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .ans { display: inline-block; font-size: 11px; padding: 2px 6px; margin: 0 4px 4px 0; border: 1px solid #e7e5e4; background: white; }
+    .ans.O { color: #065f46; } .ans.M { color: #b45309; } .ans.X { color: #991b1b; font-weight: 700; }
+    .rv-text { margin-top: 6px; line-height: 1.6; }
+    .rv-text b { font-size: 12px; }
+
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.15); border-radius: 50%;
+               border-top-color: #1c1917; animation: spin 0.7s linear infinite; vertical-align: -2px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 모달 */
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: flex-start; justify-content: center; padding: 16px; overflow: auto; }
+    .modal-close { position: fixed; top: 14px; right: 18px; background: rgba(255,255,255,0.15); border: none; color: white; font-size: 20px; cursor: pointer; padding: 6px 12px; z-index: 101; }
+    .view-content { background: white; padding: 12px; max-width: 900px; width: 100%; }
+    .view-content img { display: block; width: 100%; margin-bottom: 8px; border: 1px solid #e7e5e4; }
+
+    /* 마스킹 편집기 */
+    .ed-wrap { background: white; width: 100%; max-width: 1100px; }
+    .ed-bar { position: sticky; top: 0; background: white; border-bottom: 1px solid #e7e5e4; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; z-index: 2; }
+    .ed-bar .grp { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .ed-hint { padding: 8px 16px; font-size: 13px; background: #fffbeb; color: #44403c; }
+    .ed-canvas-wrap { padding: 12px; background: #e7e5e4; }
+    #edCanvas { display: block; width: 100%; background: white; cursor: crosshair; touch-action: none; }
+
+    /* ===== 출력물 ===== */
+    #printArea { display: none; padding: 0 24px 40px; }
+    .pp { width: 190mm; height: 275mm; margin: 0 auto 18px; padding: 6mm; background: white; border: 1px solid #d6d3d1;
+          overflow: hidden; font-size: 10.5pt; line-height: 1.45; color: #1c1917;
+          -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .pp-top { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1c1917; padding-bottom: 2.5mm; margin-bottom: 3mm; }
+    .pp-top .ttl { font-family: 'Noto Serif KR', serif; font-size: 1.55em; font-weight: 700; }
+    .pp-top .sub { font-size: 0.8em; color: #57534e; letter-spacing: 0.05em; }
+    .pp-top .who { text-align: right; font-size: 1.15em; font-weight: 700; }
+    .pp-top .who span { display: block; font-size: 0.7em; font-weight: 400; color: #57534e; }
+    .pp h4 { font-size: 1.02em; margin: 3.2mm 0 1.6mm; padding-left: 2mm; border-left: 3px solid #1c1917; }
+    .pp table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+    .pp th, .pp td { border: 1px solid #a8a29e; padding: 1.1mm 1.6mm; vertical-align: middle; }
+    .pp th { background: #f5f5f4; font-weight: 700; text-align: center; }
+    .pp td.n { text-align: center; width: 11mm; }
+    .pp td.sec { width: 18mm; text-align: center; font-weight: 700; background: #fafaf9; }
+    .pp td.flag { width: 13mm; text-align: center; font-weight: 700; color: #991b1b; }
+    .pp tr.need td { background: #fef2f2; }
+    .pp tr.need td.sec { background: #fde8e8; }
+    .pp ul { list-style: none; }
+    .pp li { padding: 1.1mm 0 1.1mm 2mm; border-bottom: 1px dotted #d6d3d1; }
+    .pp li .s { display: inline-block; min-width: 13mm; font-weight: 700; font-size: 0.85em; }
+    .pp .empty { color: #a8a29e; font-size: 0.9em; padding: 1mm 2mm; }
+    .pp .tbox { border: 1px solid #a8a29e; min-height: 16mm; padding: 2mm 3mm; white-space: pre-wrap; }
+    .pp .plan td.k { width: 34mm; background: #fafaf9; font-weight: 700; font-size: 0.9em; }
+    .pp .plan td.v { height: 9mm; }
+    .pp .foot { margin-top: 2.5mm; font-size: 0.75em; color: #78716c; text-align: right; }
+
+    @page { size: A4; margin: 10mm; }
+    @media print {
+      body { background: white; }
+      #loginScreen, #dashboard, .modal-bg, .modal-close { display: none !important; }
+      #printArea { display: block !important; padding: 0; }
+      .pp { margin: 0; border: none; padding: 0; break-after: page; page-break-after: always; }
+      .pp:last-child { break-after: auto; page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <div style="font-size:11px; letter-spacing:0.2em; color:#a8a29e; margin-bottom:8px;">TEACHER · ADMIN</div>
+    <h2>교사 로그인</h2>
+    <p>여행지리 딜레마 초안 동료평가 관리</p>
+    <input type="password" id="pwInput" placeholder="비밀번호">
+    <div id="loginError" class="login-error" style="display:none;"></div>
+    <button onclick="doLogin()">로그인</button>
+  </div>
+</div>
+
+<!-- 대시보드 -->
+<div id="dashboard" style="display:none;">
+  <div class="top-bar">
+    <div class="top-inner">
+      <div class="top-title">
+        <div class="small">TEACHER DASHBOARD</div>
+        <div class="name">여행지리 초안 동료평가 관리</div>
+      </div>
+      <button class="logout-btn" onclick="logout()">로그아웃</button>
+    </div>
+    <div class="tabs">
+      <button class="tab" data-tab="upload" onclick="switchTab('upload')">① 업로드·마스킹</button>
+      <button class="tab" data-tab="papers" onclick="switchTab('papers')">② 평가지 확인</button>
+      <button class="tab" data-tab="progress" onclick="switchTab('progress')">③ 진행 현황</button>
+      <button class="tab" data-tab="feedback" onclick="switchTab('feedback')">④ 피드백 검토</button>
+      <button class="tab" data-tab="print" onclick="switchTab('print')">⑤ 출력</button>
+      <button class="tab" data-tab="qr" onclick="switchTab('qr')">QR 코드</button>
+    </div>
+  </div>
+  <div class="container">
+    <div id="classFilterBar" class="class-tabs" style="display:none;"></div>
+    <div id="tabContent"></div>
+  </div>
+</div>
+
+<!-- 출력 영역 (body 바로 아래) -->
+<div id="printArea"></div>
+
+<!-- 이미지 보기 -->
+<div id="viewModal" class="modal-bg" style="display:none;" onclick="if(event.target===this) closeView()">
+  <button class="modal-close" onclick="closeView()">✕</button>
+  <div class="view-content" id="viewContent"></div>
+</div>
+
+<!-- 마스킹 편집기 -->
+<div id="editor" class="modal-bg" style="display:none;">
+  <div class="ed-wrap">
+    <div class="ed-bar">
+      <div class="grp">
+        <strong id="edTitle"></strong>
+        <span id="edSampleWrap"></span>
+      </div>
+      <div class="grp" id="edPages"></div>
+      <div class="grp">
+        <button class="btn-secondary" onclick="edUndo()">마지막 박스 지우기</button>
+        <button class="btn-secondary" onclick="edClear()">이 쪽 박스 모두 지우기</button>
+        <button class="btn-primary" onclick="closeEditor()">완료</button>
+      </div>
+    </div>
+    <div class="ed-hint" id="edHint"></div>
+    <div class="ed-canvas-wrap"><canvas id="edCanvas"></canvas></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+  apiCall('getConfig', []).then(function (c) {
+    window.CONFIG_DATA = c;
+    var s = document.createElement('script'); s.src = 'js/teacher.js?v=' + (window.APP_VERSION || '1');
+    document.body.appendChild(s);
+  }).catch(function (e) {
+    document.body.insertAdjacentHTML('afterbegin', '<div style="padding:16px;background:#fee2e2;color:#991b1b;font-family:sans-serif;">서버에 연결하지 못했어요: ' + e.message + '</div>');
+  });
+</script>
+</body>
+</html>

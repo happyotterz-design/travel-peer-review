@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+  <title>여행지리 동료평가</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Nanum Gothic', sans-serif; background: #fafaf9; color: #1c1917; line-height: 1.55; }
+    .serif { font-family: 'Noto Serif KR', serif; }
+    .container { max-width: 1280px; margin: 0 auto; padding: 20px; }
+
+    /* 로그인 */
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .login-card { max-width: 440px; width: 100%; }
+    .badge { display: inline-block; padding: 4px 12px; border: 1px solid #d6d3d1; color: #57534e;
+             letter-spacing: 0.2em; font-size: 11px; margin-bottom: 20px; }
+    .login-card h1 { font-size: 34px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em; }
+    .login-card h2 { font-size: 17px; color: #44403c; font-weight: 400; }
+    .divider { width: 48px; height: 1px; background: #a8a29e; margin: 20px auto; }
+    .form-card { background: white; border: 1px solid #e7e5e4; padding: 30px; }
+    .label { display: block; font-size: 11px; letter-spacing: 0.2em; color: #78716c; margin-bottom: 8px; }
+    input[type=text], input[type=number], select, textarea {
+      width: 100%; padding: 12px 14px; border: 1px solid #d6d3d1; outline: none;
+      font-family: 'Nanum Gothic'; font-size: 15px; background: white;
+    }
+    input:focus, textarea:focus, select:focus { border-color: #1c1917; }
+    .btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .btn-grid button { padding: 14px; border: 1px solid #d6d3d1; background: white; cursor: pointer;
+                       font-family: 'Nanum Gothic'; font-size: 16px; }
+    .btn-grid button.active { background: #1c1917; color: white; border-color: #1c1917; }
+    .form-row { margin-bottom: 18px; }
+    .btn-primary { width: 100%; padding: 14px; background: #1c1917; color: white; border: none;
+                   font-weight: 700; cursor: pointer; font-family: 'Nanum Gothic'; font-size: 15px; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .alert { padding: 12px 14px; font-size: 13px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; white-space: pre-line; }
+    .info-box { background: #fffbeb; border-left: 4px solid #d97706; padding: 14px 16px;
+                font-size: 13px; line-height: 1.7; color: #44403c; }
+
+    /* 헤더 */
+    .header { background: white; border-bottom: 1px solid #e7e5e4; position: sticky; top: 0; z-index: 10; }
+    .header-inner { max-width: 1280px; margin: 0 auto; padding: 12px 20px;
+                    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .user-info .small { font-size: 11px; letter-spacing: 0.2em; color: #78716c; }
+    .user-info .name { font-weight: 700; }
+    .progress-info { display: flex; gap: 20px; align-items: center; font-size: 14px; }
+    .progress-info span { color: #78716c; }
+    .progress-info strong { margin-left: 4px; }
+    .linkbtn { color: #57534e; cursor: pointer; background: none; border: none; font-family: 'Nanum Gothic'; font-size: 13px; }
+    .progress-bar { height: 3px; background: #f5f5f4; }
+    .progress-bar > div { height: 100%; background: #1c1917; transition: width 0.3s; }
+
+    /* 평가 화면 */
+    .review-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .review-grid { grid-template-columns: 1fr; } }
+    .paper-pane { position: sticky; top: 76px; align-self: start; }
+    @media (max-width: 900px) { .paper-pane { position: static; } }
+    .paper-card { background: white; border: 1px solid #e7e5e4; }
+    .paper-head { padding: 10px 14px; border-bottom: 1px solid #e7e5e4; display: flex;
+                  justify-content: space-between; align-items: center; font-size: 13px; }
+    .paper-pages { background: #f5f5f4; padding: 10px; max-height: calc(100vh - 150px); overflow: auto; }
+    @media (max-width: 900px) { .paper-pages { max-height: 70vh; } }
+    .paper-pages img { display: block; width: 100%; margin-bottom: 10px; border: 1px solid #d6d3d1; background: white; }
+    .pg-label { font-size: 11px; color: #78716c; margin: 2px 0 4px; }
+    .loading { text-align: center; padding: 40px; color: #78716c; }
+
+    .guide { background: #fffbeb; border-left: 4px solid #d97706; padding: 12px 14px; font-size: 13px; line-height: 1.7; margin-bottom: 14px; }
+    .sec-card { background: white; border: 1px solid #e7e5e4; padding: 16px 18px; margin-bottom: 12px; }
+    .sec-title { font-family: 'Noto Serif KR', serif; font-size: 17px; font-weight: 700; margin-bottom: 10px; }
+    .ck-item { padding: 10px 0; border-top: 1px solid #f5f5f4; }
+    .ck-item:first-of-type { border-top: none; padding-top: 0; }
+    .ck-text { font-size: 14px; margin-bottom: 8px; }
+    .ck-code { display: inline-block; font-size: 10px; color: #78716c; border: 1px solid #e7e5e4; padding: 0 5px; margin-right: 6px; vertical-align: 1px; }
+    .ck-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .ck-btns button { padding: 9px 4px; border: 1px solid #e7e5e4; background: white; cursor: pointer;
+                      font-family: 'Nanum Gothic'; font-size: 14px; }
+    .ck-btns button.sel-O { background: #065f46; color: white; border-color: #065f46; }
+    .ck-btns button.sel-M { background: #b45309; color: white; border-color: #b45309; }
+    .ck-btns button.sel-X { background: #991b1b; color: white; border-color: #991b1b; }
+    .ck-item.missing { background: #fef2f2; }
+
+    .write-card { background: white; border: 2px solid #1c1917; padding: 16px 18px; margin-bottom: 12px; }
+    .write-card h3 { font-family: 'Noto Serif KR', serif; font-size: 17px; margin-bottom: 4px; }
+    .write-card .desc { font-size: 13px; color: #57534e; margin-bottom: 10px; }
+    .sec-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .sec-pick button { padding: 6px 12px; border: 1px solid #d6d3d1; background: white; cursor: pointer; font-family: 'Nanum Gothic'; font-size: 13px; }
+    .sec-pick button.sel { background: #1c1917; color: white; border-color: #1c1917; }
+    .counter { text-align: right; font-size: 12px; color: #a8a29e; margin-top: 4px; }
+    .counter.ok { color: #065f46; }
+    textarea { resize: vertical; min-height: 80px; font-size: 14px; }
+
+    .actions { display: flex; gap: 10px; margin-bottom: 40px; }
+    .btn-skip { flex: 1; padding: 13px; border: 1px solid #d6d3d1; background: white; cursor: pointer; font-family: 'Nanum Gothic'; font-size: 14px; }
+    .btn-skip:disabled { opacity: 0.4; cursor: not-allowed; }
+    .actions .btn-primary { flex: 2; }
+
+    .empty-card { background: white; border: 1px solid #e7e5e4; padding: 56px 32px; text-align: center; max-width: 640px; margin: 20px auto; }
+    .empty-card h2 { font-family: 'Noto Serif KR', serif; font-size: 23px; margin-bottom: 10px; }
+    .empty-card p { color: #57534e; margin-bottom: 22px; line-height: 1.7; }
+    .empty-card .icon { font-size: 50px; margin-bottom: 14px; }
+    .btn-inline { display: inline-block; padding: 12px 20px; background: #1c1917; color: white; border: none;
+                  cursor: pointer; font-family: 'Nanum Gothic'; font-size: 14px; margin: 4px; }
+    .btn-inline.gray { background: #78716c; }
+
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 100; display: flex; flex-direction: column; }
+    .modal-bar { display: flex; justify-content: flex-end; gap: 6px; padding: 10px; }
+    .modal-bar button { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 14px; cursor: pointer; font-family: 'Nanum Gothic'; font-size: 14px; }
+    .modal-bar button.on { background: white; color: #1c1917; }
+    .modal-content { flex: 1; overflow: auto; padding: 0 10px 20px; text-align: center; }
+    .modal-content img { display: block; margin: 0 auto 10px; background: white; }
+
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
+               border-radius: 50%; border-top-color: white; animation: spin 0.7s linear infinite; vertical-align: -3px; }
+    .spinner.dark { border-color: rgba(0,0,0,0.15); border-top-color: #1c1917; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1c1917; color: white;
+             padding: 12px 20px; font-size: 14px; z-index: 200; }
+  </style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <div style="text-align:center;">
+      <div class="badge">TRAVEL GEOGRAPHY · PEER FEEDBACK</div>
+      <h1 class="serif">여행지리 딜레마</h1>
+      <h2>초안 동료 피드백</h2>
+      <div class="divider"></div>
+      <p style="color:#57534e; margin-bottom: 28px;">친구가 고쳐 쓸 수 있도록<br>채점 기준에 맞춰 구체적으로 피드백해 주세요</p>
+    </div>
+    <div class="form-card">
+      <div class="form-row">
+        <label class="label">반</label>
+        <div class="btn-grid" id="classBtns"></div>
+      </div>
+      <div class="form-row">
+        <label class="label">학번 (5자리)</label>
+        <input type="number" id="numberInput" placeholder="예: 20315" min="10000" max="39999">
+      </div>
+      <div class="form-row">
+        <label class="label">이름</label>
+        <input type="text" id="nameInput" placeholder="이름">
+      </div>
+      <div id="loginError" class="alert" style="display:none; margin-bottom: 14px;"></div>
+      <button id="loginBtn" class="btn-primary" style="margin-bottom: 16px;">시작하기</button>
+      <div class="info-box">
+        <strong>안내</strong><br>
+        누가 썼는지, 누가 평가했는지는 서로 알 수 없어요.<br>
+        여러분의 피드백은 선생님이 확인한 뒤 <strong>글쓴이에게 출력해서 전달</strong>되고, 다음 시간 초안 수정에 쓰여요.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 평가 화면 -->
+<div id="reviewScreen" style="display:none;">
+  <div class="header">
+    <div class="header-inner">
+      <div class="user-info">
+        <div class="small">PEER FEEDBACK</div>
+        <div class="name" id="userName">-</div>
+      </div>
+      <div class="progress-info">
+        <div><span>완료</span><strong id="progressCount">0 / 3</strong></div>
+        <div><span>보류</span><strong id="skipCount">0 / 2</strong></div>
+        <button class="linkbtn" onclick="logout()">로그아웃</button>
+      </div>
+    </div>
+    <div class="progress-bar"><div id="progressBar" style="width:0%"></div></div>
+  </div>
+  <div class="container">
+    <div id="contentArea"></div>
+  </div>
+</div>
+
+<!-- 크게 보기 -->
+<div id="zoomModal" class="modal-bg" style="display:none;">
+  <div class="modal-bar">
+    <button data-z="100" onclick="setZoom(100)">화면 맞춤</button>
+    <button data-z="150" onclick="setZoom(150)">150%</button>
+    <button data-z="200" onclick="setZoom(200)">200%</button>
+    <button onclick="closeZoom()">닫기 ✕</button>
+  </div>
+  <div class="modal-content" id="zoomContent"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+  apiCall('getConfig', []).then(function (c) {
+    window.CONFIG_DATA = c;
+    var s = document.createElement('script'); s.src = 'js/student.js?v=' + (window.APP_VERSION || '1');
+    document.body.appendChild(s);
+  }).catch(function (e) {
+    document.body.insertAdjacentHTML('afterbegin', '<div style="padding:16px;background:#fee2e2;color:#991b1b;font-family:sans-serif;">서버에 연결하지 못했어요: ' + e.message + '</div>');
+  });
+</script>
+</body>
+</html>
