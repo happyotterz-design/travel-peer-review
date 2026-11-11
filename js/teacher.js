@@ -578,7 +578,7 @@ function renderPapersTab(c) {
     c.innerHTML = `
       <div class="card">
         <h3>${currentClass} 평가지 ${list.length}개</h3>
-        <p class="muted" style="margin-bottom:10px;">"보기"는 학생 화면에 보이는 그대로예요. 문제가 있는 글은 비활성으로 바꾸면 배정되지 않아요.</p>
+        <p class="muted" style="margin-bottom:10px;">"보기"는 학생 화면에 보이는 그대로예요. 이름이 보이면 "보기" → "추가로 가리기"로 그 자리에서 가릴 수 있어요. 문제가 있는 글은 비활성으로 바꾸면 배정되지 않아요.</p>
         <table class="tbl">
           <thead><tr><th>학번</th><th>이름</th><th>익명ID</th><th>쪽수</th><th>상태</th><th></th></tr></thead>
           <tbody>${list.map(p => `
@@ -595,17 +595,133 @@ function renderPapersTab(c) {
 function setActive(row, v, el) {
   run('setPaperActive', TPW, row, v).then(() => { el.closest('tr').classList.toggle('off', !v); }).catch(e => alert(e.message));
 }
+// 보기 창: 학생 화면 그대로 보여주고, 필요하면 그 자리에서 추가로 가릴 수 있음
+const vw = { row: 0, fileIds: [], canvases: [], rects: [], masking: false, saving: false, drag: null };
 function viewPaper(row, anonId) {
   const m = document.getElementById('viewModal');
   const box = document.getElementById('viewContent');
   m.style.display = 'flex';
+  Object.assign(vw, { row, fileIds: [], canvases: [], rects: [], masking: false, saving: false, drag: null });
   box.innerHTML = `<div style="padding:30px; text-align:center;"><span class="spinner"></span> 불러오는 중...</div>`;
-  run('getPaperImagesByRow', TPW, row).then(res => {
-    box.innerHTML = `<div style="padding:4px 0 10px; font-weight:700;">익명 ${esc(anonId)}</div>` +
-      res.images.map(b => `<img src="data:image/jpeg;base64,${b}">`).join('');
+  run('getPaperImagesByRow', TPW, row).then(async res => {
+    vw.fileIds = res.fileIds || [];
+    box.innerHTML = `
+      <div style="position:sticky; top:-12px; background:white; z-index:2; padding:6px 0 10px; border-bottom:1px solid #e7e5e4; margin-bottom:10px;">
+        <div class="row-flex" style="justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+          <strong>익명 ${esc(anonId)}</strong>
+          <span class="row-flex" style="gap:6px;">
+            ${vw.fileIds.length ? `<button class="btn-secondary" id="vwMaskBtn" onclick="toggleViewMask()">추가로 가리기</button>
+            <button class="btn-secondary" id="vwUndoBtn" onclick="undoViewMask()" style="display:none;">되돌리기</button>
+            <button id="vwSaveBtn" onclick="saveViewMask()" style="display:none;">가린 것 저장</button>` : ''}
+          </span>
+        </div>
+        <div id="vwHelp" class="muted" style="display:none; margin-top:6px; font-size:13px;">가릴 곳을 마우스로 끌어서 네모를 그리세요. 여러 개 그릴 수 있어요. 다 그리면 "가린 것 저장"을 누르세요.</div>
+        <div id="vwMsg" style="margin-top:6px;"></div>
+      </div>
+      <div id="vwPages"></div>`;
+    const pages = document.getElementById('vwPages');
+    for (let i = 0; i < res.images.length; i++) {
+      const img = new Image();
+      img.src = 'data:image/jpeg;base64,' + res.images[i];
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.style.cssText = 'display:block; width:100%; margin-bottom:8px; border:1px solid #e7e5e4; touch-action:none;';
+      c._img = img;
+      vw.canvases.push(c); vw.rects.push([]);
+      drawViewPage(i);
+      bindViewCanvas(c, i);
+      pages.appendChild(c);
+    }
   }).catch(e => { box.innerHTML = errHtml(e); });
 }
-function closeView() { document.getElementById('viewModal').style.display = 'none'; }
+function drawViewPage(i, preview) {
+  const c = vw.canvases[i], g = c.getContext('2d');
+  g.drawImage(c._img, 0, 0);
+  g.fillStyle = '#000';
+  vw.rects[i].forEach(r => g.fillRect(r.x, r.y, r.w, r.h));
+  if (preview) { g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(preview.x, preview.y, preview.w, preview.h); }
+}
+function viewPt(c, e) {
+  const b = c.getBoundingClientRect();
+  return { x: (e.clientX - b.left) * c.width / b.width, y: (e.clientY - b.top) * c.height / b.height };
+}
+function normRect(a, b) { return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) }; }
+function bindViewCanvas(c, i) {
+  c.addEventListener('pointerdown', e => {
+    if (!vw.masking || vw.saving) return;
+    e.preventDefault(); c.setPointerCapture(e.pointerId);
+    vw.drag = { i, start: viewPt(c, e) };
+  });
+  c.addEventListener('pointermove', e => {
+    if (!vw.drag || vw.drag.i !== i) return;
+    drawViewPage(i, normRect(vw.drag.start, viewPt(c, e)));
+  });
+  c.addEventListener('pointerup', e => {
+    if (!vw.drag || vw.drag.i !== i) return;
+    const r = normRect(vw.drag.start, viewPt(c, e));
+    vw.drag = null;
+    if (r.w > 8 && r.h > 8) vw.rects[i].push(r);
+    drawViewPage(i);
+    updateViewMaskUI();
+  });
+}
+function changedViewPages() { return vw.rects.map((r, i) => r.length ? i : -1).filter(i => i >= 0); }
+function toggleViewMask() {
+  vw.masking = !vw.masking;
+  vw.canvases.forEach(c => { c.style.cursor = vw.masking ? 'crosshair' : ''; });
+  updateViewMaskUI();
+}
+function undoViewMask() {
+  for (let i = vw.rects.length - 1; i >= 0; i--) {
+    if (vw.rects[i].length) { vw.rects[i].pop(); drawViewPage(i); break; }
+  }
+  updateViewMaskUI();
+}
+function updateViewMaskUI() {
+  const n = vw.rects.reduce((a, r) => a + r.length, 0);
+  document.getElementById('vwMaskBtn').textContent = vw.masking ? '가리기 끄기' : '추가로 가리기';
+  document.getElementById('vwHelp').style.display = vw.masking ? 'block' : 'none';
+  document.getElementById('vwUndoBtn').style.display = n ? '' : 'none';
+  const save = document.getElementById('vwSaveBtn');
+  save.style.display = n ? '' : 'none';
+  save.textContent = `가린 것 저장 (${n}곳)`;
+}
+async function saveViewMask() {
+  const pages = changedViewPages();
+  if (!pages.length || vw.saving) return;
+  if (!confirm(`${pages.map(i => (i + 1) + '쪽').join(', ')}을(를) 가린 이미지로 바꿀까요? 학생 화면에도 바로 반영돼요.`)) return;
+  vw.saving = true;
+  const msg = document.getElementById('vwMsg');
+  document.getElementById('vwSaveBtn').disabled = true;
+  try {
+    for (const i of pages) {
+      msg.innerHTML = `<span class="spinner"></span> ${i + 1}쪽 저장 중...`;
+      drawViewPage(i);
+      const b64 = vw.canvases[i].toDataURL('image/jpeg', 0.85).split(',')[1];
+      const res = await run('replacePaperPage', TPW, vw.row, vw.fileIds[i], b64);
+      if (!res.success) throw new Error(res.message);
+      vw.fileIds[i] = res.fileId;
+      // 저장된 그림을 새 기준으로 삼음
+      const img = new Image(); img.src = vw.canvases[i].toDataURL('image/jpeg', 0.85); await img.decode();
+      vw.canvases[i]._img = img; vw.rects[i] = [];
+    }
+    msg.innerHTML = `<div class="alert alert-success" style="margin:0;">저장했어요. 학생 화면에도 가린 대로 보여요.</div>`;
+    vw.masking = false;
+    vw.canvases.forEach(c => { c.style.cursor = ''; });
+  } catch (e) {
+    msg.innerHTML = `<div class="alert" style="margin:0; color:#dc2626;">저장 실패: ${esc(e.message)}</div>`;
+  } finally {
+    vw.saving = false;
+    document.getElementById('vwSaveBtn').disabled = false;
+    updateViewMaskUI();
+  }
+}
+function closeView() {
+  if (vw.saving) { alert('저장 중이에요. 끝날 때까지 기다려 주세요.'); return; }
+  if (changedViewPages().length && !confirm('가린 것을 아직 저장하지 않았어요. 닫을까요?')) return;
+  document.getElementById('viewModal').style.display = 'none';
+}
 
 // ============================================================
 // ③ 진행 현황

@@ -95,6 +95,7 @@ const API_ = {
   getPapersT: getPapersT,
   setPaperActive: setPaperActive,
   getPaperImagesByRow: getPaperImagesByRow,
+  replacePaperPage: replacePaperPage,
   getProgressT: getProgressT,
   getFeedbackT: getFeedbackT,
   setReviewHidden: setReviewHidden,
@@ -468,7 +469,34 @@ function setPaperActive(pw, row, active) {
 function getPaperImagesByRow(pw, row) {
   checkTeacher_(pw);
   const v = sheet_(SHEET.PAPERS).getRange(row, 1, 1, 8).getValues()[0];
-  return { success: true, images: imagesToBase64_(String(v[4]).split(',').filter(Boolean)) };
+  const ids = String(v[4]).split(',').filter(Boolean);
+  return { success: true, images: imagesToBase64_(ids), fileIds: ids };
+}
+
+// 저장된 평가지의 한 쪽을 다시 가린 이미지로 바꿈 (평가지 확인 탭의 '추가로 가리기')
+// 줄 번호가 바뀌었을 수 있어서, 그 줄에 원래 파일 ID가 그대로 있는지 확인하고 바꿈
+function replacePaperPage(pw, row, oldFileId, b64) {
+  checkTeacher_(pw);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const sh = sheet_(SHEET.PAPERS);
+    const v = sh.getRange(row, 1, 1, 8).getValues()[0];
+    const ids = String(v[4]).split(',').filter(Boolean);
+    const k = ids.indexOf(oldFileId);
+    if (k === -1) return { success: false, message: '평가지 목록이 바뀌었어요. 창을 닫고 다시 열어 주세요.' };
+    const old = DriveApp.getFileById(oldFileId);
+    const parents = old.getParents();
+    const folder = parents.hasNext() ? parents.next() : getClassFolder_(String(v[0]));
+    const blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', old.getName());
+    const newId = folder.createFile(blob).getId();
+    ids[k] = newId;
+    sh.getRange(row, 5).setValue(ids.join(','));
+    try { old.setTrashed(true); } catch (e) {}
+    return { success: true, fileId: newId };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // 진행 현황
