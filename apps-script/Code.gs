@@ -86,6 +86,7 @@ const API_ = {
   getMyProgress: function (c, n, nm) { authStudent_(c, n, nm); return getMyProgress(c, n, nm); },
   getNextPaper: function (c, n, nm, skipped, ex) { authStudent_(c, n, nm); return getNextPaper(c, n, nm, skipped, ex); },
   getPaperImagesS: function (c, n, nm, pid) { authStudent_(c, n, nm); return getPaperImages(c, pid); },
+  getPaperFilesS: function (c, n, nm, pid) { authStudent_(c, n, nm); return getPaperFiles(c, pid); },
   submitReview: submitReview,
   // 교사 (모두 비밀번호 확인)
   teacherLogin: teacherLogin,
@@ -322,6 +323,14 @@ function getPaperImages(classNum, anonId) {
   const p = readPapers_(classNum).find(m => m.anonId === anonId && m.active);
   if (!p) return { success: false, message: '평가지를 찾을 수 없어요' };
   return { success: true, images: imagesToBase64_(p.fileIds) };
+}
+
+// 빠른 방식: 파일 ID만 주고, 이미지는 학생 브라우저가 드라이브에서 바로 받음
+// (이미지 폴더가 '링크가 있는 사람 보기'로 공유되어 있어야 함)
+function getPaperFiles(classNum, anonId) {
+  const p = readPapers_(classNum).find(m => m.anonId === anonId && m.active);
+  if (!p) return { success: false, message: '평가지를 찾을 수 없어요' };
+  return { success: true, fileIds: p.fileIds };
 }
 
 function imagesToBase64_(ids) {

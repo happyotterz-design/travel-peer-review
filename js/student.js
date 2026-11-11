@@ -211,30 +211,55 @@ function loadNext(excludeId) {
     .getNextPaper(S.me.classNum, S.me.number, S.me.name, S.skipped, excludeId || null);
 }
 
+// 이미지 불러오기: 드라이브에서 바로 받는 빠른 방식 → 안 되면 예전 방식(서버 경유)
+function driveImgUrl(id) { return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w1600'; }
+function paperMissing(res, resumed) {
+  const box = document.getElementById('paperPages');
+  if (resumed) {
+    // 이어 쓰던 글을 더 이상 받을 수 없으면(선생님이 내렸거나 이미 제출) 새 글로
+    S.paper = null; saveLocal();
+    showStart();
+    toast('이전에 쓰던 글을 열 수 없어서 새 글을 받아야 해요');
+    return;
+  }
+  if (box) box.innerHTML = `<div class="loading">${res.message}</div>`;
+}
+function showPages(srcs) {
+  const box = document.getElementById('paperPages');
+  if (!box) return;
+  S.images = srcs;
+  box.innerHTML = srcs.map((src, i) =>
+    `<div class="pg-label">${i + 1}쪽</div><img src="${src}" alt="${i + 1}쪽" onclick="openZoom()" style="min-height:120px;">`
+  ).join('');
+}
 function loadImages(tok, resumed) {
   google.script.run
     .withSuccessHandler(res => {
       if (tok !== S.loadToken) return;
-      const box = document.getElementById('paperPages');
-      if (!box) return;
-      if (!res.success) {
-        if (resumed) {
-          // 이어 쓰던 글을 더 이상 받을 수 없으면(선생님이 내렸거나 이미 제출) 새 글로
-          S.paper = null; saveLocal();
-          showStart();
-          toast('이전에 쓰던 글을 열 수 없어서 새 글을 받아야 해요');
-          return;
-        }
-        box.innerHTML = `<div class="loading">${res.message}</div>`; return;
-      }
-      S.images = res.images;
-      box.innerHTML = res.images.map((b64, i) =>
-        `<div class="pg-label">${i + 1}쪽</div><img src="data:image/jpeg;base64,${b64}" alt="${i + 1}쪽" onclick="openZoom()">`
-      ).join('');
+      if (!res.success) return paperMissing(res, resumed);
+      const srcs = res.fileIds.map(driveImgUrl);
+      showPages(srcs);
+      // 한 장이라도 못 받으면 예전 방식으로 다시
+      let fell = false;
+      document.querySelectorAll('#paperPages img').forEach(img => {
+        img.addEventListener('error', () => { if (!fell && tok === S.loadToken) { fell = true; loadImagesSlow(tok, resumed); } }, { once: true });
+      });
+    })
+    .withFailureHandler(() => { if (tok === S.loadToken) loadImagesSlow(tok, resumed); })
+    .getPaperFilesS(S.me.classNum, S.me.number, S.me.name, S.paper.id);
+}
+function loadImagesSlow(tok, resumed) {
+  const box = document.getElementById('paperPages');
+  if (box) box.innerHTML = `<div class="loading"><span class="spinner dark"></span><div style="margin-top:10px;">글을 불러오는 중...</div></div>`;
+  google.script.run
+    .withSuccessHandler(res => {
+      if (tok !== S.loadToken) return;
+      if (!res.success) return paperMissing(res, resumed);
+      showPages(res.images.map(b64 => 'data:image/jpeg;base64,' + b64));
     })
     .withFailureHandler(err => {
-      const box = document.getElementById('paperPages');
-      if (box) box.innerHTML = `<div class="loading">불러오기 실패: ${err.message}</div>`;
+      const b = document.getElementById('paperPages');
+      if (b) b.innerHTML = `<div class="loading">불러오기 실패: ${err.message}</div>`;
     })
     .getPaperImagesS(S.me.classNum, S.me.number, S.me.name, S.paper.id);
 }
@@ -350,7 +375,7 @@ function openZoom() {
   if (!S.images.length) return;
   document.getElementById('zoomModal').style.display = 'flex';
   document.getElementById('zoomContent').innerHTML =
-    S.images.map(b64 => `<img src="data:image/jpeg;base64,${b64}">`).join('');
+    S.images.map(src => `<img src="${src}">`).join('');
   setZoom(zoomLevel);
 }
 function setZoom(z) {
