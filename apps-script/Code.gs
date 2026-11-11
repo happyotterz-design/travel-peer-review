@@ -283,7 +283,7 @@ function studentLogin(classNum, number, name) {
 
 function getMyProgress(classNum, num, name) {
   const mine = myReviews_(readReviews_(classNum), num, name);
-  return { completed: mine.length, reviewedIds: mine.map(r => r.targetId) };
+  return { completed: mine.length };
 }
 
 // 덜 평가받은 글부터 랜덤 배정. 보류한 글은 다른 글이 없을 때만 다시 나옴.
@@ -298,8 +298,9 @@ function getNextPaper(classNum, num, name, skippedIds, excludeId) {
   const available = all.filter(p => p.id !== myId && reviewed.indexOf(p.id) === -1);
   if (available.length === 0) return { success: false, allDone: true, message: '더 평가할 수 있는 글이 없어요' };
 
-  let pool = available.filter(p => skippedIds.indexOf(p.id) === -1 && p.id !== excludeId);
-  if (pool.length === 0) pool = available.filter(p => p.id !== excludeId);
+  // 학생 쪽에는 학번이 들어간 내부 ID 대신 익명 ID만 주고받음
+  let pool = available.filter(p => skippedIds.indexOf(p.anonId) === -1 && p.anonId !== excludeId);
+  if (pool.length === 0) pool = available.filter(p => p.anonId !== excludeId);
   if (pool.length === 0) pool = available;
 
   const counts = {};
@@ -311,13 +312,13 @@ function getNextPaper(classNum, num, name, skippedIds, excludeId) {
 
   return {
     success: true,
-    fromSkipped: skippedIds.indexOf(picked.id) !== -1,
-    paper: { id: picked.id, anonId: picked.anonId, pages: picked.fileIds.length },
+    fromSkipped: skippedIds.indexOf(picked.anonId) !== -1,
+    paper: { id: picked.anonId, pages: picked.fileIds.length },
   };
 }
 
-function getPaperImages(classNum, paperId) {
-  const p = readPapers_(classNum).find(m => m.id === paperId && m.active);
+function getPaperImages(classNum, anonId) {
+  const p = readPapers_(classNum).find(m => m.anonId === anonId && m.active);
   if (!p) return { success: false, message: '평가지를 찾을 수 없어요' };
   return { success: true, images: imagesToBase64_(p.fileIds) };
 }
@@ -346,7 +347,7 @@ function submitReview(payload) {
       return { success: false, message: `잘된 점과 고칠 점은 ${MIN_COMMENT}자 이상 써주세요` };
     }
 
-    const target = readPapers_(cls).find(m => m.id === payload.paperId);
+    const target = readPapers_(cls).find(m => m.anonId === payload.paperId && m.active);
     if (!target) return { success: false, message: '대상 평가지를 찾을 수 없어요' };
     if (target.num === Number(payload.reviewerNum)) return { success: false, message: '자기 글은 평가할 수 없어요' };
 

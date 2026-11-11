@@ -3,8 +3,34 @@ const CONFIG = window.CONFIG_DATA;
 const S = {
   me: null, paper: null, images: [], loadToken: 0,
   answers: {}, goodSec: '', good: '', fixSec: '', fix: '',
-  skipped: [], skipsUsed: 0, completed: 0, submitting: false,
+  skipped: [], skipsUsed: 0, completed: 0, submitting: false, fromSkipped: false,
 };
+
+// ===== 이 기기에 작성 중인 내용 자동 저장 =====
+// 새로고침하거나 다시 로그인해도 같은 글, 같은 내용으로 이어서 쓸 수 있게 함
+const STORE_PREFIX = 'tpr-draft-v1:';
+const STORE_MAX_AGE = 1000 * 60 * 60 * 12; // 12시간 지나면 버림
+function storeKey() { return STORE_PREFIX + S.me.classNum + ':' + S.me.number; }
+function saveLocal() {
+  if (!S.me) return;
+  try {
+    localStorage.setItem(storeKey(), JSON.stringify({
+      name: S.me.name, savedAt: Date.now(),
+      skipped: S.skipped, skipsUsed: S.skipsUsed,
+      paper: S.paper, fromSkipped: S.fromSkipped,
+      answers: S.answers, goodSec: S.goodSec, good: S.good, fixSec: S.fixSec, fix: S.fix,
+    }));
+  } catch (e) { /* 저장 공간을 못 쓰는 기기면 그냥 넘어감 */ }
+}
+function loadLocal() {
+  try {
+    const d = JSON.parse(localStorage.getItem(storeKey()) || 'null');
+    if (!d || d.name !== S.me.name || Date.now() - (d.savedAt || 0) > STORE_MAX_AGE) return null;
+    return d;
+  } catch (e) { return null; }
+}
+let saveTimer = null;
+function saveLocalSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(saveLocal, 300); }
 
 // ===== 로그인 =====
 let selectedClass = '';
@@ -55,14 +81,51 @@ function enterReview() {
   document.getElementById('userName').textContent = `${S.me.classNum} ${S.me.number} ${S.me.name}`;
   showLoading('진행 상황을 불러오는 중...');
   google.script.run
-    .withSuccessHandler(res => { S.completed = res.completed; updateHeader(); showStart(); })
+    .withSuccessHandler(res => {
+      S.completed = res.completed;
+      const saved = loadLocal();
+      if (saved) {
+        S.skipped = saved.skipped || [];
+        S.skipsUsed = saved.skipsUsed || 0;
+      }
+      updateHeader();
+      if (saved && saved.paper) resumePaper(saved);
+      else showStart();
+    })
     .withFailureHandler(err => alert('오류: ' + err.message))
     .getMyProgress(S.me.classNum, S.me.number, S.me.name);
 }
 
+// 작성하던 글 이어서 열기
+function resumePaper(saved) {
+  const tok = ++S.loadToken;
+  S.paper = saved.paper;
+  S.fromSkipped = !!saved.fromSkipped;
+  S.images = [];
+  S.answers = saved.answers || {};
+  S.goodSec = saved.goodSec || ''; S.good = saved.good || '';
+  S.fixSec = saved.fixSec || ''; S.fix = saved.fix || '';
+  renderForm(S.fromSkipped);
+  restoreFormUI();
+  toast('작성하던 내용을 불러왔어요');
+  loadImages(tok, true);
+}
+
+function restoreFormUI() {
+  Object.keys(S.answers).forEach(k => {
+    document.querySelectorAll(`[data-k="${k}"]`).forEach(b => { b.className = b.dataset.v === S.answers[k] ? 'sel-' + S.answers[k] : ''; });
+  });
+  ['good', 'fix'].forEach(kind => {
+    const sec = kind === 'good' ? S.goodSec : S.fixSec;
+    document.querySelectorAll(`.sec-pick button[data-kind="${kind}"]`).forEach(b => b.classList.toggle('sel', b.dataset.sec === sec));
+    const ta = document.getElementById(kind + 'Text');
+    if (ta) { ta.value = S[kind]; updateCounter(kind); }
+  });
+}
+
 function logout() {
-  if (S.paper && !confirm('작성 중인 평가가 사라져요. 로그아웃할까요?')) return;
-  Object.assign(S, { me: null, paper: null, images: [], skipped: [], skipsUsed: 0, completed: 0 });
+  saveLocal(); // 작성 중인 내용은 이 기기에 남겨 두고, 다시 로그인하면 이어서 씀
+  Object.assign(S, { me: null, paper: null, images: [], skipped: [], skipsUsed: 0, completed: 0, fromSkipped: false });
   S.loadToken++;
   document.getElementById('reviewScreen').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
@@ -128,8 +191,10 @@ function loadNext(excludeId) {
       }
       if (res.fromSkipped) S.skipped = S.skipped.filter(id => id !== res.paper.id);
       S.paper = res.paper;
+      S.fromSkipped = !!res.fromSkipped;
       S.images = [];
       S.answers = {}; S.goodSec = ''; S.good = ''; S.fixSec = ''; S.fix = '';
+      saveLocal();
       renderForm(res.fromSkipped);
       loadImages(tok);
     })
@@ -137,13 +202,22 @@ function loadNext(excludeId) {
     .getNextPaper(S.me.classNum, S.me.number, S.me.name, S.skipped, excludeId || null);
 }
 
-function loadImages(tok) {
+function loadImages(tok, resumed) {
   google.script.run
     .withSuccessHandler(res => {
       if (tok !== S.loadToken) return;
       const box = document.getElementById('paperPages');
       if (!box) return;
-      if (!res.success) { box.innerHTML = `<div class="loading">${res.message}</div>`; return; }
+      if (!res.success) {
+        if (resumed) {
+          // 이어 쓰던 글을 더 이상 받을 수 없으면(선생님이 내렸거나 이미 제출) 새 글로
+          S.paper = null; saveLocal();
+          showStart();
+          toast('이전에 쓰던 글을 열 수 없어서 새 글을 받아야 해요');
+          return;
+        }
+        box.innerHTML = `<div class="loading">${res.message}</div>`; return;
+      }
       S.images = res.images;
       box.innerHTML = res.images.map((b64, i) =>
         `<div class="pg-label">${i + 1}쪽</div><img src="data:image/jpeg;base64,${b64}" alt="${i + 1}쪽" onclick="openZoom()">`
@@ -174,7 +248,7 @@ function renderForm(fromSkipped) {
         <div class="paper-card">
           <div class="paper-head">
             <div><span style="color:#78716c; font-size:11px; letter-spacing:0.2em;">PAPER</span>
-              <strong style="margin-left:8px;">익명 ${S.paper.anonId}</strong>
+              <strong style="margin-left:8px;">친구의 초안</strong>
               ${fromSkipped ? '<span style="margin-left:8px; font-size:11px; background:#fef3c7; color:#92400e; padding:2px 6px;">보류했던 글</span>' : ''}
             </div>
             <button class="linkbtn" onclick="openZoom()">🔍 크게 보기</button>
@@ -219,6 +293,7 @@ function renderForm(fromSkipped) {
           <div class="counter" id="fixCounter">0 / ${CONFIG.minComment}자 이상</div>
         </div>
 
+        <div class="muted-save" style="font-size:12px; color:#78716c; margin:-4px 0 10px; text-align:right;">작성 중인 내용은 이 기기에 자동으로 저장돼요</div>
         <div class="actions">
           <button class="btn-skip" onclick="handleSkip()" ${S.skipsUsed >= CONFIG.maxSkips ? 'disabled' : ''}>
             보류하기 (${CONFIG.maxSkips - S.skipsUsed}회 남음)
@@ -236,6 +311,7 @@ function setAns(key, v) {
     b.className = b.dataset.v === v ? 'sel-' + v : '';
   });
   document.getElementById('ck-' + key).classList.remove('missing');
+  saveLocalSoon();
 }
 
 function pickSec(kind, sec) {
@@ -243,11 +319,16 @@ function pickSec(kind, sec) {
   document.querySelectorAll(`.sec-pick button[data-kind="${kind}"]`).forEach(b => {
     b.classList.toggle('sel', b.dataset.sec === sec);
   });
+  saveLocalSoon();
 }
 
 function onText(kind, val) {
   S[kind] = val;
-  const n = val.trim().length;
+  updateCounter(kind);
+  saveLocalSoon();
+}
+function updateCounter(kind) {
+  const n = S[kind].trim().length;
   const el = document.getElementById(kind + 'Counter');
   el.textContent = `${n} / ${CONFIG.minComment}자 이상`;
   el.classList.toggle('ok', n >= CONFIG.minComment);
@@ -277,6 +358,7 @@ function handleSkip() {
   const id = S.paper.id;
   if (S.skipped.indexOf(id) === -1) S.skipped.push(id);
   S.paper = null;
+  saveLocal();
   updateHeader();
   loadNext(id);
 }
@@ -308,6 +390,8 @@ function handleSubmit() {
       if (res.success) {
         S.completed++;
         S.paper = null;
+        S.answers = {}; S.goodSec = ''; S.good = ''; S.fixSec = ''; S.fix = '';
+        saveLocal();
         updateHeader();
         toast('제출했어요!');
         showStart();
