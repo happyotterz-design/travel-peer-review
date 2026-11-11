@@ -86,12 +86,13 @@ const up = {
   roster: [], assign: [], needPages: 0,
   template: [], extra: {}, thumbK: 0, thumbToken: 0,
   existing: 0, reviewCount: 0, saving: false,
+  saved: {}, addMode: false,
 };
 
 function renderUploadTab(c) {
   c.innerHTML = `
     <div class="alert alert-info">
-      <strong>순서</strong> 반·쪽수 선택 → 반별 합본 PDF 선택 → 제출자 확인 → 이름 칸 네모 그리기(한 번) → 학생별 썸네일 확인 → 저장<br>
+      <strong>순서</strong> 반·쪽수 선택 → 반별 합본 PDF 선택(늦게 낸 학생은 그 학생 PDF만 → "추가 저장") → 제출자 확인 → 이름 칸 네모 그리기(한 번) → 학생별 썸네일 확인 → 저장<br>
       저장할 때 검은 박스가 이미지에 직접 칠해져서, 학생에게는 가려진 이미지만 전달돼요. 원본 PDF는 Drive에 올라가지 않아요.
     </div>
 
@@ -226,7 +227,11 @@ async function loadRoster() {
   try {
     const res = await run('prepareUpload', TPW, up.cls);
     up.existing = res.existing; up.reviewCount = res.reviewCount;
+    up.saved = {}; (res.saved || []).forEach(p => { up.saved[p.num] = p.anonId; });
     up.roster = res.roster.map(s => ({ num: s.num, name: s.name, submitted: true, pages: up.pps }));
+    // 이미 저장된 반에 몇 명분짜리 짧은 PDF를 올리면 '추가 저장'으로 시작
+    up.addMode = up.existing > 0 && up.numPages <= up.pps * 3;
+    applyAddMode();
     up.extra = {};
     resizeTemplate();
     computeAssign();
@@ -240,9 +245,25 @@ function renderUploadInfo() {
   document.getElementById('upInfo').innerHTML =
     `📄 <strong>${esc(up.fileName)}</strong> · 전체 <strong>${up.numPages}쪽</strong> · ${up.cls} 명단 ${up.roster.length}명`;
   const w = document.getElementById('saveWarn');
-  w.innerHTML = up.existing > 0
-    ? `<div class="alert alert-warn">${up.cls}에 이미 저장된 평가지 ${up.existing}개가 있어요. 저장하면 평가지 이미지가 새로 바뀌어요. (이미 제출된 평가 ${up.reviewCount}건은 그대로 남아요.)</div>`
-    : '';
+  const modeBox = up.existing > 0 ? `
+    <label style="display:flex; gap:8px; align-items:flex-start; margin-bottom:10px; cursor:pointer;">
+      <input type="checkbox" ${up.addMode ? 'checked' : ''} onchange="setAddMode(this.checked)" style="width:auto; margin-top:3px;">
+      <span><strong>추가 저장 (늦게 낸 학생만 더하기)</strong><br>
+      <span class="muted">이미 저장된 ${up.existing}명은 그대로 두고, 체크한 학생만 새로 더해요. 이미 저장된 학생은 자동으로 체크가 풀려요. PDF에는 추가할 학생 초안만 넣으면 돼요.</span></span>
+    </label>` : '';
+  w.innerHTML = modeBox + (up.existing > 0
+    ? (up.addMode
+      ? `<div class="alert alert-info">추가 저장: 기존 평가지 ${up.existing}개와 이미 제출된 평가 ${up.reviewCount}건은 그대로 남아요.</div>`
+      : `<div class="alert alert-warn">${up.cls}에 이미 저장된 평가지 ${up.existing}개가 있어요. 저장하면 평가지 이미지가 새로 바뀌어요. (이미 제출된 평가 ${up.reviewCount}건은 그대로 남아요.)</div>`)
+    : '');
+}
+
+function applyAddMode() {
+  up.roster.forEach(s => { s.submitted = up.addMode ? !(s.num in up.saved) : true; s.manualStart = undefined; });
+}
+function setAddMode(v) {
+  up.addMode = v; applyAddMode(); computeAssign();
+  renderUploadInfo(); renderRoster(); renderThumbs();
 }
 
 function computeAssign() {
@@ -487,7 +508,9 @@ async function doSave() {
   if (!up.assign.length) { alert('제출한 학생이 없어요'); return; }
   if ((up.overlap || up.maxPage > up.numPages) && !confirm('쪽 범위에 문제가 있어요. 겹치거나 범위 밖인 학생은 잘못 저장될 수 있어요. 그래도 저장할까요?')) return;
   if (!up.template.some(a => a.length) && !confirm('공통 마스킹 박스가 없어요. 이름이 그대로 보일 수 있어요. 그래도 저장할까요?')) return;
-  if (!confirm(`${up.cls} ${up.assign.length}명의 평가지를 저장할까요?`)) return;
+  if (!confirm(up.addMode
+    ? `${up.cls}에 ${up.assign.map(a => a.name).join(', ')} 평가지를 추가할까요? (기존 ${up.existing}개는 그대로)`
+    : `${up.cls} ${up.assign.length}명의 평가지를 저장할까요?`)) return;
 
   up.saving = true;
   const btn = document.getElementById('saveBtn');
@@ -495,13 +518,18 @@ async function doSave() {
   const log = document.getElementById('saveLog');
   btn.disabled = true;
   try {
-    log.innerHTML = '<span class="spinner"></span> 기존 평가지 정리 중...';
-    await run('resetClassPapers', TPW, up.cls);
-
     const letter = up.cls.replace('반', '');
+    let startNo = 1;
+    if (up.addMode) {
+      // 기존 익명번호 다음 번호부터 이어서 붙임
+      startNo = Object.values(up.saved).reduce((m, id) => Math.max(m, parseInt(String(id).split('-')[1], 10) || 0), 0) + 1;
+    } else {
+      log.innerHTML = '<span class="spinner"></span> 기존 평가지 정리 중...';
+      await run('resetClassPapers', TPW, up.cls);
+    }
     const order = shuffle(up.assign.map((_, i) => i));
     const anon = {};
-    order.forEach((i, n) => { anon[i] = `${letter}-${String(n + 1).padStart(2, '0')}`; });
+    order.forEach((i, n) => { anon[i] = `${letter}-${String(startNo + n).padStart(2, '0')}`; });
 
     for (let i = 0; i < up.assign.length; i++) {
       const a = up.assign[i];
@@ -516,8 +544,10 @@ async function doSave() {
       if (imgs.length) await run('saveStudentPaper', TPW, up.cls, a.num, a.name, anon[i], imgs);
       bar.style.width = ((i + 1) / up.assign.length * 100) + '%';
     }
-    log.innerHTML = `<div class="alert alert-success">${up.cls} ${up.assign.length}명 저장 완료! "② 평가지 확인" 탭에서 학생에게 보이는 화면을 확인할 수 있어요.</div>`;
-    up.existing = up.assign.length;
+    log.innerHTML = `<div class="alert alert-success">${up.cls} ${up.assign.length}명 ${up.addMode ? '추가 ' : ''}저장 완료! "② 평가지 확인" 탭에서 학생에게 보이는 화면을 확인할 수 있어요.</div>`;
+    if (up.addMode) { up.assign.forEach((a, i) => { up.saved[a.num] = anon[i]; }); up.existing = Object.keys(up.saved).length; applyAddMode(); computeAssign(); renderRoster(); renderThumbs(); }
+    else { up.existing = up.assign.length; up.saved = {}; up.assign.forEach((a, i) => { up.saved[a.num] = anon[i]; }); }
+    renderUploadInfo();
   } catch (e) {
     log.innerHTML = errHtml(e) + '<div class="muted">중간에 멈췄다면 다시 저장을 누르면 처음부터 새로 저장돼요.</div>';
   } finally {

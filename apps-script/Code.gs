@@ -378,9 +378,11 @@ function teacherLogin(pw) {
 // 업로드 준비: 명단과 기존 데이터 수
 function prepareUpload(pw, classNum) {
   checkTeacher_(pw);
+  const papers = readPapers_(classNum);
   return {
     roster: getRoster_(classNum),
-    existing: readPapers_(classNum).length,
+    existing: papers.length,
+    saved: papers.map(p => ({ num: p.num, anonId: p.anonId })),
     reviewCount: readReviews_(classNum).length,
   };
 }
@@ -429,6 +431,12 @@ function resetClassPapers(pw, classNum) {
 // 학생 1명의 마스킹된 이미지 저장
 function saveStudentPaper(pw, classNum, num, name, anonId, images) {
   checkTeacher_(pw);
+  // 같은 학생 평가지가 이미 있으면 이미지와 줄을 지우고 새로 저장 (추가 저장 때 중복 방지)
+  const sh = sheet_(SHEET.PAPERS);
+  readPapers_(classNum).filter(p => p.num === Number(num)).sort((x, y) => y.row - x.row).forEach(p => {
+    p.fileIds.forEach(id => { try { DriveApp.getFileById(id).setTrashed(true); } catch (e) {} });
+    sh.deleteRow(p.row);
+  });
   const folder = getClassFolder_(classNum);
   const ids = images.map((b64, k) => {
     const blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', `${anonId}_${k + 1}.jpg`);
