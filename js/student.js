@@ -78,6 +78,7 @@ function doLogin() {
 function enterReview() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('reviewScreen').style.display = 'block';
+  fitLayout();
   document.getElementById('userName').textContent = `${S.me.classNum} ${S.me.number} ${S.me.name}`;
   showLoading('진행 상황을 불러오는 중...');
   google.script.run
@@ -132,6 +133,14 @@ function logout() {
 }
 
 // ===== 화면 =====
+// 헤더 높이에 맞춰 평가 화면이 화면을 꽉 채우도록
+function fitLayout() {
+  const h = document.querySelector('#reviewScreen .header');
+  if (h && h.offsetHeight) document.documentElement.style.setProperty('--hdr', h.offsetHeight + 'px');
+}
+window.addEventListener('resize', fitLayout);
+window.addEventListener('orientationchange', () => setTimeout(fitLayout, 300));
+
 function updateHeader() {
   document.getElementById('progressCount').textContent = `${S.completed} / ${CONFIG.targetReviews}`;
   document.getElementById('skipCount').textContent = `${S.skipsUsed} / ${CONFIG.maxSkips}`;
@@ -259,7 +268,7 @@ function renderForm(fromSkipped) {
         </div>
       </div>
 
-      <div>
+      <div class="form-pane" id="formPane">
         <div class="guide">
           <strong>순서</strong> ① 글을 끝까지 먼저 읽기 → ② 기준마다 체크 → ③ 잘된 점·고칠 점 쓰기<br>
           체크는 <strong>있음 / 애매함 / 없음</strong> 중에 골라요. 애매하면 솔직하게 "애매함"을 눌러 주세요.
@@ -303,6 +312,7 @@ function renderForm(fromSkipped) {
       </div>
     </div>`;
   window.scrollTo(0, 0);
+  fitLayout();
 }
 
 function setAns(key, v) {

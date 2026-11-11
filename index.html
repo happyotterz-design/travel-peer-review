@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>여행지리 동료평가</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet">
   <style>
@@ -51,15 +52,12 @@
     .progress-bar > div { height: 100%; background: #1c1917; transition: width 0.3s; }
 
     /* 평가 화면 */
-    .review-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
-    @media (max-width: 900px) { .review-grid { grid-template-columns: 1fr; } }
-    .paper-pane { position: sticky; top: 76px; align-self: start; }
-    @media (max-width: 900px) { .paper-pane { position: static; } }
+    /* 기본(휴대폰): 글 위, 체크 아래로 쌓임 */
+    .review-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
     .paper-card { background: white; border: 1px solid #e7e5e4; }
     .paper-head { padding: 10px 14px; border-bottom: 1px solid #e7e5e4; display: flex;
                   justify-content: space-between; align-items: center; font-size: 13px; }
-    .paper-pages { background: #f5f5f4; padding: 10px; max-height: calc(100vh - 150px); overflow: auto; }
-    @media (max-width: 900px) { .paper-pages { max-height: 70vh; } }
+    .paper-pages { background: #f5f5f4; padding: 8px; max-height: 65vh; max-height: 65dvh; overflow: auto; -webkit-overflow-scrolling: touch; }
     .paper-pages img { display: block; width: 100%; margin-bottom: 10px; border: 1px solid #d6d3d1; background: white; }
     .pg-label { font-size: 11px; color: #78716c; margin: 2px 0 4px; }
     .loading { text-align: center; padding: 40px; color: #78716c; }
@@ -115,6 +113,45 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1c1917; color: white;
              padding: 12px 20px; font-size: 14px; z-index: 200; }
+
+    /* ===== 태블릿·PC: 왼쪽 글, 오른쪽 체크·쓰기 (화면 꽉 차게, 양쪽 따로 스크롤) ===== */
+    @media (min-width: 700px) {
+      #reviewScreen .container { max-width: none; padding: 10px 12px 0; }
+      .review-grid {
+        grid-template-columns: 1.15fr 1fr; gap: 12px;
+        height: calc(100vh - var(--hdr, 64px) - 10px);
+        height: calc(100dvh - var(--hdr, 64px) - 10px);
+      }
+      .paper-pane { min-height: 0; height: 100%; }
+      .paper-card { height: 100%; display: flex; flex-direction: column; }
+      .paper-pages { flex: 1; min-height: 0; max-height: none; }
+      .form-pane { min-height: 0; height: 100%; overflow-y: auto; overscroll-behavior: contain;
+                   -webkit-overflow-scrolling: touch; padding-right: 2px; }
+      .form-pane .actions { margin-bottom: 16px; }
+    }
+    /* 세로로 긴 태블릿은 글 쪽을 조금 더 넓게 */
+    @media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {
+      .review-grid { grid-template-columns: 1.2fr 1fr; }
+      .sec-card, .write-card { padding: 12px 12px; }
+      .ck-btns button { padding: 10px 2px; }
+    }
+
+    /* ===== 휴대폰 ===== */
+    @media (max-width: 699px) {
+      #reviewScreen .container { padding: 10px; }
+      .header-inner { padding: 8px 12px; gap: 6px; }
+      .user-info .small { display: none; }
+      .progress-info { gap: 12px; font-size: 13px; }
+      .login-card h1 { font-size: 28px; }
+      .form-card { padding: 20px; }
+      .sec-card, .write-card { padding: 14px; }
+      .empty-card { padding: 40px 20px; }
+    }
+    /* 아이폰에서 입력할 때 화면이 확대되지 않도록 16px */
+    @media (max-width: 1100px) {
+      input[type=text], input[type=number], select, textarea { font-size: 16px; }
+    }
+    .ck-btns button, .sec-pick button, .btn-skip, .btn-primary { touch-action: manipulation; }
   </style>
 </head>
 <body>
