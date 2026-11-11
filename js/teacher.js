@@ -154,10 +154,12 @@ function renderUploadTab(c) {
     </div>`;
 
   document.getElementById('upClass').addEventListener('change', e => {
+    if (savingGuard()) { e.target.value = up.cls; return; }
     up.cls = e.target.value;
     if (up.pdf) loadRoster();
   });
   document.getElementById('upPps').addEventListener('change', e => {
+    if (savingGuard()) { e.target.value = up.pps; return; }
     up.pps = Math.max(1, parseInt(e.target.value, 10) || CONFIG.pagesPerStudent);
     up.roster.forEach(s => { s.pages = up.pps; });
     resizeTemplate();
@@ -181,7 +183,16 @@ function resizeTemplate() {
   while (up.template.length < maxPages) up.template.push([]);
 }
 
+// 저장 중에 반·PDF·쪽수를 바꾸면 다른 반 이름으로 섞여 저장되므로 막음
+function savingGuard() {
+  if (!up.saving) return false;
+  alert('지금 평가지를 저장하는 중이에요. 저장이 끝난 뒤에 반이나 PDF를 바꿔 주세요.');
+  return true;
+}
+window.addEventListener('beforeunload', e => { if (up.saving) { e.preventDefault(); e.returnValue = ''; } });
+
 async function loadPdfFile(f) {
+  if (savingGuard()) return;
   if (!/pdf/i.test(f.type) && !/\.pdf$/i.test(f.name)) { document.getElementById('upInfo').innerHTML = '<span style="color:#dc2626;">PDF 파일만 올릴 수 있어요</span>'; return; }
   document.getElementById('upInfo').innerHTML = `<span class="spinner"></span> ${esc(f.name)} 읽는 중...`;
   const buf = await f.arrayBuffer();
@@ -189,6 +200,7 @@ async function loadPdfFile(f) {
 }
 
 async function loadFromDrive() {
+  if (savingGuard()) return;
   const input = document.getElementById('upDrive').value.trim();
   const info = document.getElementById('upInfo');
   if (!input) { info.innerHTML = '<span style="color:#dc2626;">드라이브 링크를 붙여넣어 주세요</span>'; return; }
@@ -513,27 +525,28 @@ async function doSave() {
     : `${up.cls} ${up.assign.length}명의 평가지를 저장할까요?`)) return;
 
   up.saving = true;
+  const cls = up.cls, assign = up.assign.slice();
   const btn = document.getElementById('saveBtn');
   const bar = document.getElementById('saveBar');
   const log = document.getElementById('saveLog');
   btn.disabled = true;
   try {
-    const letter = up.cls.replace('반', '');
+    const letter = cls.replace('반', '');
     let startNo = 1;
     if (up.addMode) {
       // 기존 익명번호 다음 번호부터 이어서 붙임
       startNo = Object.values(up.saved).reduce((m, id) => Math.max(m, parseInt(String(id).split('-')[1], 10) || 0), 0) + 1;
     } else {
       log.innerHTML = '<span class="spinner"></span> 기존 평가지 정리 중...';
-      await run('resetClassPapers', TPW, up.cls);
+      await run('resetClassPapers', TPW, cls);
     }
-    const order = shuffle(up.assign.map((_, i) => i));
+    const order = shuffle(assign.map((_, i) => i));
     const anon = {};
     order.forEach((i, n) => { anon[i] = `${letter}-${String(startNo + n).padStart(2, '0')}`; });
 
-    for (let i = 0; i < up.assign.length; i++) {
-      const a = up.assign[i];
-      log.innerHTML = `<span class="spinner"></span> ${i + 1} / ${up.assign.length} · ${a.num} ${esc(a.name)} 변환·저장 중...`;
+    for (let i = 0; i < assign.length; i++) {
+      const a = assign[i];
+      log.innerHTML = `<span class="spinner"></span> ${i + 1} / ${assign.length} · ${a.num} ${esc(a.name)} 변환·저장 중...`;
       const imgs = [];
       for (let k = 0; k < a.pages; k++) {
         const pg = a.startPage + k;
@@ -541,12 +554,12 @@ async function doSave() {
         const c = await renderPage(pg, 1240, masksFor(i, k));
         imgs.push(c.toDataURL('image/jpeg', 0.75).split(',')[1]);
       }
-      if (imgs.length) await run('saveStudentPaper', TPW, up.cls, a.num, a.name, anon[i], imgs);
-      bar.style.width = ((i + 1) / up.assign.length * 100) + '%';
+      if (imgs.length) await run('saveStudentPaper', TPW, cls, a.num, a.name, anon[i], imgs);
+      bar.style.width = ((i + 1) / assign.length * 100) + '%';
     }
-    log.innerHTML = `<div class="alert alert-success">${up.cls} ${up.assign.length}명 ${up.addMode ? '추가 ' : ''}저장 완료! "② 평가지 확인" 탭에서 학생에게 보이는 화면을 확인할 수 있어요.</div>`;
-    if (up.addMode) { up.assign.forEach((a, i) => { up.saved[a.num] = anon[i]; }); up.existing = Object.keys(up.saved).length; applyAddMode(); computeAssign(); renderRoster(); renderThumbs(); }
-    else { up.existing = up.assign.length; up.saved = {}; up.assign.forEach((a, i) => { up.saved[a.num] = anon[i]; }); }
+    log.innerHTML = `<div class="alert alert-success">${cls} ${assign.length}명 ${up.addMode ? '추가 ' : ''}저장 완료! "② 평가지 확인" 탭에서 학생에게 보이는 화면을 확인할 수 있어요.</div>`;
+    if (up.addMode) { assign.forEach((a, i) => { up.saved[a.num] = anon[i]; }); up.existing = Object.keys(up.saved).length; applyAddMode(); computeAssign(); renderRoster(); renderThumbs(); }
+    else { up.existing = assign.length; up.saved = {}; assign.forEach((a, i) => { up.saved[a.num] = anon[i]; }); }
     renderUploadInfo();
   } catch (e) {
     log.innerHTML = errHtml(e) + '<div class="muted">중간에 멈췄다면 다시 저장을 누르면 처음부터 새로 저장돼요.</div>';
