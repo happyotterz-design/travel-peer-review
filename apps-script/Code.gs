@@ -438,13 +438,20 @@ function saveStudentPaper(pw, classNum, num, name, anonId, images) {
     p.fileIds.forEach(id => { try { DriveApp.getFileById(id).setTrashed(true); } catch (e) {} });
     sh.deleteRow(p.row);
   });
+  // 익명번호가 다른 학생과 겹치면 그 반의 다음 빈 번호로 바꿈
+  const others = readPapers_(classNum).filter(p => p.num !== Number(num));
+  if (others.some(p => p.anonId === anonId)) {
+    const letter = String(anonId).split('-')[0];
+    const maxNo = others.reduce((m, p) => Math.max(m, parseInt(String(p.anonId).split('-')[1], 10) || 0), 0);
+    anonId = `${letter}-${String(maxNo + 1).padStart(2, '0')}`;
+  }
   const folder = getClassFolder_(classNum);
   const ids = images.map((b64, k) => {
     const blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', `${anonId}_${k + 1}.jpg`);
     return folder.createFile(blob).getId();
   });
   sheet_(SHEET.PAPERS).appendRow([classNum, Number(num), name, anonId, ids.join(','), ids.length, true, new Date()]);
-  return { success: true };
+  return { success: true, anonId };
 }
 
 function getPapersT(pw, classNum) {
