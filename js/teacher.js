@@ -784,23 +784,17 @@ function renderFeedbackTab(c) {
     if (!list.length) { c.innerHTML = `<div class="card"><p class="muted">평가지가 없어요</p></div>`; return; }
     c.innerHTML = `
       <div class="alert alert-info">
-        숨김을 누른 평가는 출력물에서 빠져요. (체크 결과와 글 모두) 표현만 다듬고 싶으면 스프레드시트 "평가결과" 시트에서 글을 직접 고쳐도 돼요.<br>
-        선생님 한마디는 출력물 4번 칸에 들어가요. 비워두면 손으로 쓸 수 있는 빈칸으로 출력돼요.
+        숨김을 누른 평가는 출력물에서 빠져요. (체크 결과와 글 모두) 표현만 다듬고 싶으면 스프레드시트 "평가결과" 시트에서 글을 직접 고쳐도 돼요.
       </div>
       <div class="card">
         <h3>${currentClass} 피드백 (${list.length}편)</h3>
         ${list.map((p, pi) => `
           <details class="fb">
             <summary>
-              <span><strong>${p.num} ${esc(p.name)}</strong> <span class="muted">· 익명 ${esc(p.anonId)} · 받은 피드백 ${p.reviews.length}건${p.reviews.some(r => r.hidden) ? ' · 숨김 ' + p.reviews.filter(r => r.hidden).length : ''}${p.comment ? ' · 코멘트 있음' : ''}</span></span>
+              <span><strong>${p.num} ${esc(p.name)}</strong> <span class="muted">· 익명 ${esc(p.anonId)} · 받은 피드백 ${p.reviews.length}건${p.reviews.some(r => r.hidden) ? ' · 숨김 ' + p.reviews.filter(r => r.hidden).length : ''}</span></span>
               <span class="muted">▼</span>
             </summary>
             ${p.reviews.map(r => reviewHtml(r)).join('') || '<p class="muted" style="margin-top:8px;">아직 받은 피드백이 없어요</p>'}
-            <div style="margin-top:12px;">
-              <label class="label">선생님 한마디</label>
-              <textarea id="cm-${pi}" rows="3">${esc(p.comment)}</textarea>
-              <div style="text-align:right; margin-top:6px;"><button class="btn-secondary" onclick="saveComment(${pi}, this)">저장</button></div>
-            </div>
           </details>`).join('')}
       </div>`;
   }).catch(e => { c.innerHTML = errHtml(e); });
@@ -930,11 +924,8 @@ function printPageHtml(p, plan) {
       <h4>3. 고치면 좋을 점</h4>
       ${fixes ? `<ul>${fixes}</ul>` : '<div class="empty">아직 받은 피드백이 없어요</div>'}
 
-      <h4>4. 선생님 한마디</h4>
-      <div class="tbox">${esc(p.comment)}</div>
-
       ${plan ? `
-      <h4>5. 나의 수정 계획</h4>
+      <h4>4. 나의 수정 계획</h4>
       <table class="plan">
         <tr><td class="k">가장 먼저 고칠 부분</td><td class="v"></td></tr>
         <tr><td class="k">어떻게 고칠까</td><td class="v"></td></tr>
